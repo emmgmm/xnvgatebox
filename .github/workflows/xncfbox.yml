@@ -1,0 +1,56 @@
+name: Refresh xncfbox
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xncfbox-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned Xray
+        run: python scripts/install_xray.py
+
+      - name: Run xncfbox serverless verification
+        env:
+          WORKER_URL: ${{ secrets.XNCFBOX_WORKER_URL || vars.XNCFBOX_WORKER_URL }}
+          VLESS_UUID: ${{ secrets.XNCFBOX_VLESS_UUID || vars.XNCFBOX_VLESS_UUID }}
+          CHECKER_TOKEN: ${{ secrets.XNCFBOX_CHECKER_TOKEN }}
+          XRAY_BIN: tools/bin/xray
+        run: python scripts/toolbox.py mode-a --output data/xncfbox --runtime runtime/xncfbox
+
+      - name: Publish xncfbox manifest
+        if: success()
+        env:
+          CF_MANIFEST_PATH: data/xncfbox/cf_manifest.json
+          CF_API_TOKEN: ${{ secrets.XNCFBOX_CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.XNCFBOX_CF_ACCOUNT_ID }}
+          CF_KV_NAMESPACE_ID: ${{ secrets.XNCFBOX_CF_KV_NAMESPACE_ID }}
+        run: python scripts/publish_cf_manifest.py
+
+      - name: Upload diagnostic report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xncfbox-refresh-report
+          retention-days: 3
+          path: |
+            data/xncfbox/report.json
+            data/xncfbox/cf_manifest.json

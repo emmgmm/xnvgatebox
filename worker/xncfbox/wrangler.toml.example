@@ -1,0 +1,16 @@
+name = "xncfbox"
+main = "worker.mjs"
+compatibility_date = "2026-10-09"
+workers_dev = true
+
+[observability]
+enabled = false
+
+[[kv_namespaces]]
+binding = "MANIFEST"
+id = "replace-with-xncfbox-kv-namespace-id"
+
+[vars]
+DATA_PLANE_BASE_PATH = "/"
+VPN_USERNAME = "vpn"
+VPN_PASSWORD = "vpn"
