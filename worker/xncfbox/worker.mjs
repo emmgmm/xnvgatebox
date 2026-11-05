@@ -2,12 +2,16 @@
 // and TCP data-plane handling share one entrypoint.
 // SPDX-License-Identifier: GPL-3.0-only
 
-import { checkSstp, handleVlessWebSocket } from './selfhosted_edge.mjs';
-
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const NODE_HOST_RE = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.opengw\.net$/i;
 const HOST_RE = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/i;
 const BASE_PATH_RE = /^\/[A-Za-z0-9/_-]*$/;
+
+let edgeModulePromise;
+async function edgeModule() {
+  if (!edgeModulePromise) edgeModulePromise = import('./selfhosted_edge.mjs');
+  return edgeModulePromise;
+}
 
 function json(value, status = 200, extra = {}) {
   return new Response(JSON.stringify(value), {
@@ -142,8 +146,9 @@ async function publishedBackend(env, authority) {
 async function readManifest(env) {
   try {
     if (env.MANIFEST && typeof env.MANIFEST.get === 'function') {
-      const value = await env.MANIFEST.get('manifest:current', { type: 'json' });
-      if (value) return value;
+      const value = await env.MANIFEST.get('manifest:current');
+      if (typeof value === 'string' && value) return JSON.parse(value);
+      if (value && typeof value === 'object') return value;
     }
     if (typeof env.MANIFEST_JSON === 'string' && env.MANIFEST_JSON) return JSON.parse(env.MANIFEST_JSON);
     if (env.MANIFEST_JSON && typeof env.MANIFEST_JSON === 'object') return env.MANIFEST_JSON;
@@ -215,7 +220,8 @@ export async function handleRequest(request, env = {}) {
     if (!proxy) return json({ error: 'invalid_check' }, 400);
     try {
       const started = Date.now();
-      const result = await (typeof env.__checkSstp === 'function' ? env.__checkSstp(proxy) : checkSstp(proxy));
+      const check = typeof env.__checkSstp === 'function' ? env.__checkSstp : (await edgeModule()).checkSstp;
+      const result = await check(proxy);
       // The Actions checker uses this discriminator to distinguish the
       // self-hosted SSTP checker from an unexpected response or HTML error.
       return json({ type: 'sstp', success: true, proxy: value,
@@ -234,7 +240,8 @@ export async function handleRequest(request, env = {}) {
     if (!await publishedBackend(env, authority)) return json({ error: 'node_not_published' }, 403);
     try {
       const value = `${encodeURIComponent(authority.username)}:${encodeURIComponent(authority.password)}@${authority.hostname}:${authority.port}`;
-      return await (typeof env.__handleVlessWebSocket === 'function' ? env.__handleVlessWebSocket(request, env, value) : handleVlessWebSocket(request, env, value));
+      const handler = typeof env.__handleVlessWebSocket === 'function' ? env.__handleVlessWebSocket : (await edgeModule()).handleVlessWebSocket;
+      return await handler(request, env, value);
     } catch {
       return json({ error: 'data_plane_unavailable' }, 502);
     }
@@ -264,4 +271,13 @@ export async function handleRequest(request, env = {}) {
   return json({ error: 'not_found' }, 404);
 }
 
-export default { fetch: handleRequest };
+async function safeFetch(request, env, ctx) {
+  try {
+    return await handleRequest(request, env, ctx);
+  } catch (error) {
+    console.error('xncfbox request failed', error);
+    return json({ error: 'worker_exception' }, 500);
+  }
+}
+
+export default { fetch: safeFetch };
