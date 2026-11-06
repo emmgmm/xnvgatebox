@@ -198,7 +198,7 @@ document.querySelector('#sub').onclick=async()=>{const value=prompt('输入订�
 </script>`;
 }
 
-export async function handleRequest(request, env = {}) {
+async function handleRequest(request, env = {}) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, '') || '/';
   if (request.method === 'GET' && path === '/health') {

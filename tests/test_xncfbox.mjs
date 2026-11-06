@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import { handleRequest } from '../worker/xncfbox/worker.mjs';
+import worker from '../worker/xncfbox/worker.mjs';
+
+const handleRequest = worker.fetch;
 
 const uuid = '01234567-89ab-4cde-8123-456789abcdef';
 const env = {
