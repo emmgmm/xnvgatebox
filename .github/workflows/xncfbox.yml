@@ -62,9 +62,8 @@ jobs:
         if: success()
         env:
           CF_MANIFEST_PATH: data/xncfbox/cf_manifest.json
-          CF_API_TOKEN: ${{ secrets.XNCFBOX_CF_API_TOKEN }}
-          CF_ACCOUNT_ID: ${{ secrets.XNCFBOX_CF_ACCOUNT_ID }}
-          CF_KV_NAMESPACE_ID: ${{ secrets.XNCFBOX_CF_KV_NAMESPACE_ID }}
+          WORKER_URL: ${{ secrets.XNCFBOX_WORKER_URL || vars.XNCFBOX_WORKER_URL || 'https://xncfbox.waynee.workers.dev' }}
+          ADMIN_TOKEN: ${{ secrets.XNCFBOX_ADMIN_TOKEN }}
         run: python3 worker/xncfbox/publish_manifest.py
 
       - name: Upload diagnostic report
