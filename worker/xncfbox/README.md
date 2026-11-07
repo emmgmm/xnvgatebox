@@ -2,6 +2,8 @@
 
 `xncfbox` 是独立于 `xnvgatebox` 的单 Worker 部署包。
 
+当前部署地址：`https://xncfbox.waynee.workers.dev`。运行时使用独立的 `XNCFBOX_MANIFEST` KV Namespace。
+
 它提供：
 
 - `/health`：健康检查
