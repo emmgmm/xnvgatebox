@@ -31,4 +31,11 @@ npx wrangler secret put SUB_TOKEN
 npx wrangler secret put CHECKER_TOKEN
 ```
 
-GitHub Actions 使用同一个 Worker 完成节点检查和数据面验收，再把无凭证 manifest 原子写入 KV。它不会读取或写入 `xnvgatebox` 的 KV、变量或订阅。
+GitHub Actions 使用本目录内的独立刷新脚本读取公开 VPN Gate CSV，再通过同一个 Worker 做两次 SSTP 检查，最后把无凭证 manifest 原子写入 KV。它不会导入 `src/`、调用 VPS 脚本，也不会读取或写入 `xnvgatebox` 的 KV、变量或订阅。
+
+刷新工具只依赖 Python 标准库：
+
+```sh
+python3 worker/xncfbox/refresh.py
+python3 worker/xncfbox/publish_manifest.py
+```
