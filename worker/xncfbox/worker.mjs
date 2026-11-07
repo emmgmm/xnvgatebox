@@ -246,9 +246,26 @@ async function handleRequest(request, env = {}) {
       return json({ error: 'data_plane_unavailable' }, 502);
     }
   }
-  if (request.method !== 'GET') return json({ error: 'not_found' }, 404);
-
   const adminToken = String(env.ADMIN_TOKEN || '');
+  if (path === '/api/manifest' && request.method === 'PUT') {
+    if (!bearer(request, adminToken)) return json({ error: 'unauthorized' }, 401);
+    if (!env.MANIFEST || typeof env.MANIFEST.put !== 'function') return json({ error: 'manifest_storage_unavailable' }, 503);
+    let incoming;
+    try {
+      incoming = await request.json();
+    } catch {
+      return json({ error: 'invalid_manifest_json' }, 400);
+    }
+    if (!validateManifest(incoming)) return json({ error: 'invalid_manifest' }, 400);
+    try {
+      await env.MANIFEST.put('manifest:current', JSON.stringify(incoming));
+    } catch {
+      return json({ error: 'manifest_storage_failed' }, 502);
+    }
+    return json({ status: 'published', nodes: incoming.nodes.length });
+  }
+
+  if (request.method !== 'GET') return json({ error: 'not_found' }, 404);
   if (path === '/api/status' || path === '/api/manifest') {
     if (!bearer(request, adminToken)) return json({ error: 'unauthorized' }, 401);
     const manifest = await readManifest(env);
