@@ -31,7 +31,9 @@ npx wrangler secret put SUB_TOKEN
 npx wrangler secret put CHECKER_TOKEN
 ```
 
-GitHub Actions 使用本目录内的独立刷新脚本读取公开 VPN Gate CSV，再通过同一个 Worker 做两次 SSTP 检查，最后把无凭证 manifest 原子写入 KV。它不会导入 `src/`、调用 VPS 脚本，也不会读取或写入 `xnvgatebox` 的 KV、变量或订阅。
+GitHub Actions 使用本目录内的独立刷新脚本读取公开 VPN Gate CSV，再通过同一个 Worker 做两次 SSTP 检查，最后调用受保护的 `/api/manifest` 将无凭证 manifest 原子写入专用 KV。Actions 不需要 Cloudflare API Token；它不会导入 `src/`、调用 VPS 脚本，也不会读取或写入 `xnvgatebox` 的 KV、变量或订阅。
+
+仓库只需配置三个 `xncfbox` Secrets：`XNCFBOX_WORKER_URL`、`XNCFBOX_CHECKER_TOKEN`、`XNCFBOX_ADMIN_TOKEN`。
 
 刷新工具只依赖 Python 标准库：
 
