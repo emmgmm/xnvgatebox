@@ -6,6 +6,7 @@ on:
     paths:
       - worker/xncfbox/**
       - tests/test_xncfbox.mjs
+      - tests/test_xncfbox_refresh.py
       - .github/workflows/xncfbox.yml
   schedule:
     - cron: "17 * * * *"
@@ -52,7 +53,7 @@ jobs:
 
       - name: Run standalone xncfbox verification
         env:
-          WORKER_URL: ${{ secrets.XNCFBOX_WORKER_URL || vars.XNCFBOX_WORKER_URL }}
+          WORKER_URL: ${{ secrets.XNCFBOX_WORKER_URL || vars.XNCFBOX_WORKER_URL || 'https://xncfbox.waynee.workers.dev' }}
           CHECKER_TOKEN: ${{ secrets.XNCFBOX_CHECKER_TOKEN }}
           CF_MANIFEST_PATH: data/xncfbox/cf_manifest.json
         run: python3 worker/xncfbox/refresh.py
