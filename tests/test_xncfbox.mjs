@@ -4,6 +4,7 @@ import worker from '../worker/xncfbox/worker.mjs';
 const handleRequest = worker.fetch;
 
 const uuid = '01234567-89ab-4cde-8123-456789abcdef';
+let storedManifest;
 const env = {
   VLESS_UUID: uuid,
   ADMIN_TOKEN: 'admin-token',
@@ -11,7 +12,7 @@ const env = {
   CHECKER_TOKEN: 'check-token',
   MANIFEST: {
     async get() {
-      return {
+      return storedManifest || {
         schema_version: 1,
         kind: 'vpngate_cf_validated_nodes',
         generated_at: new Date().toISOString(),
@@ -31,6 +32,7 @@ const env = {
         }],
       };
     },
+    async put(key, value) { assert.equal(key, 'manifest:current'); storedManifest = JSON.parse(value); },
   },
   __checkSstp: async () => ({ exitIp: '203.0.113.10', assignedIp: '10.0.0.2' }),
 };
@@ -61,6 +63,14 @@ assert.ok(encoded.length > 20);
 const admin = await handleRequest(request('/admin'), env);
 assert.equal(admin.status, 200);
 assert.ok((await admin.text()).includes('xncfbox'));
+
+const currentManifest = await env.MANIFEST.get();
+const published = await handleRequest(request('/api/manifest', {
+  method: 'PUT',
+  headers: { Authorization: 'Bearer admin-token', 'content-type': 'application/json' },
+  body: JSON.stringify(currentManifest),
+}), env);
+assert.equal(published.status, 200);
 
 const unknownNode = await handleRequest(request('/?sstp=vpn%3Avpn%40other123.opengw.net%3A443&globalproxy=1', {
   headers: { Upgrade: 'websocket' },
