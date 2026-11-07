@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish one complete xncfbox manifest to its dedicated KV namespace."""
+"""Publish one complete xncfbox manifest through the dedicated Worker."""
 from __future__ import annotations
 
 import json
@@ -33,13 +33,12 @@ def main() -> int:
     flattened = json.dumps(manifest, ensure_ascii=False).lower()
     if any(field in flattened for field in ('"password"', '"token"', '"secret"', '"vless_uuid"')):
         fail("manifest_contains_secret_field")
-    token = os.getenv("CF_API_TOKEN", "")
-    account = os.getenv("CF_ACCOUNT_ID", "")
-    namespace = os.getenv("CF_KV_NAMESPACE_ID", "")
-    if not token or not re.fullmatch(r"[A-Za-z0-9_-]{8,128}", account) or not re.fullmatch(r"[A-Za-z0-9_-]{8,128}", namespace):
-        fail("cloudflare_credentials_missing")
-    key = urllib.parse.quote("manifest:current", safe="")
-    url = f"https://api.cloudflare.com/client/v4/accounts/{account}/storage/kv/namespaces/{namespace}/values/{key}"
+    token = os.getenv("ADMIN_TOKEN", "")
+    origin = os.getenv("WORKER_URL", "").strip().rstrip("/")
+    parsed = urllib.parse.urlsplit(origin)
+    if not token or parsed.scheme != "https" or not parsed.hostname or parsed.path not in ("", "/") or parsed.query or parsed.fragment:
+        fail("worker_credentials_missing")
+    url = "https://" + parsed.hostname + (":" + str(parsed.port) if parsed.port else "") + "/api/manifest"
     request = urllib.request.Request(url, data=path.read_bytes(), method="PUT", headers={
         "Authorization": "Bearer " + token,
         "Content-Type": "application/json",
@@ -50,9 +49,9 @@ def main() -> int:
             payload = json.loads(response.read(64_000))
     except (urllib.error.URLError, TimeoutError, OSError, ValueError):
         fail("cloudflare_request_failed")
-    if not isinstance(payload, dict) or payload.get("success") is not True:
-        fail("cloudflare_rejected")
-    print(json.dumps({"status": "published", "nodes": len(manifest["nodes"])}))
+    if not isinstance(payload, dict) or payload.get("status") != "published":
+        fail("worker_rejected")
+    print(json.dumps(payload))
     return 0
 
 
