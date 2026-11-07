@@ -29,13 +29,16 @@ jobs:
       - name: Test xncfbox request handling
         run: node tests/test_xncfbox.mjs
 
+      - name: Test xncfbox refresh tool
+        run: python3 tests/test_xncfbox_refresh.py
+
       - name: Check production from GitHub network
         env:
           WORKER_URL: ${{ secrets.XNCFBOX_WORKER_URL || vars.XNCFBOX_WORKER_URL || 'https://xncfbox.waynee.workers.dev' }}
         run: |
           curl --silent --show-error --fail-with-body --max-time 30 "${WORKER_URL%/}/health" -o health.json
           cat health.json
-          python -c 'import json; d=json.load(open("health.json")); assert d.get("service")=="xncfbox" and d.get("configured") is True, "Worker is not configured"'
+          python3 -c 'import json; d=json.load(open("health.json")); assert d.get("service")=="xncfbox" and d.get("configured") is True, "Worker is not configured"'
 
   refresh:
     needs: health
@@ -47,20 +50,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
-        with:
-          python-version: "3.12"
-
-      - name: Install pinned Xray
-        run: python scripts/install_xray.py
-
-      - name: Run xncfbox serverless verification
+      - name: Run standalone xncfbox verification
         env:
           WORKER_URL: ${{ secrets.XNCFBOX_WORKER_URL || vars.XNCFBOX_WORKER_URL }}
-          VLESS_UUID: ${{ secrets.XNCFBOX_VLESS_UUID || vars.XNCFBOX_VLESS_UUID }}
           CHECKER_TOKEN: ${{ secrets.XNCFBOX_CHECKER_TOKEN }}
-          XRAY_BIN: tools/bin/xray
-        run: python scripts/toolbox.py mode-a --output data/xncfbox --runtime runtime/xncfbox
+          CF_MANIFEST_PATH: data/xncfbox/cf_manifest.json
+        run: python3 worker/xncfbox/refresh.py
 
       - name: Publish xncfbox manifest
         if: success()
@@ -69,7 +64,7 @@ jobs:
           CF_API_TOKEN: ${{ secrets.XNCFBOX_CF_API_TOKEN }}
           CF_ACCOUNT_ID: ${{ secrets.XNCFBOX_CF_ACCOUNT_ID }}
           CF_KV_NAMESPACE_ID: ${{ secrets.XNCFBOX_CF_KV_NAMESPACE_ID }}
-        run: python scripts/publish_cf_manifest.py
+        run: python3 worker/xncfbox/publish_manifest.py
 
       - name: Upload diagnostic report
         if: always()
